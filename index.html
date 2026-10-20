@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OTC Clean Up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  :root{
+    --bg:#F4F4F2; --panel:#FFFFFF; --ink:#22262A; --muted:#666D73; --line:#D6D8DA;
+    --gray:#5B6166; --gold:#A9852F; --gold-soft:#F3EAD3;
+    --old:#B7791F; --old-bg:#FDF1DC; --dup:#A23B2C; --dup-bg:#F9E3DF; --ok:#3D6B4F;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1A1C1E; --panel:#24272A; --ink:#E8E8E6; --muted:#A3A9AE; --line:#3A3E42;
+      --gray:#B9BEC2; --gold:#D4B261; --gold-soft:#3A3322;
+      --old:#E3A84B; --old-bg:#3B2F1B; --dup:#E58572; --dup-bg:#3D2420; --ok:#7FB892;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 "EB Garamond",Georgia,serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 16px 60px}
+  header{border-bottom:2px solid var(--gold);padding-bottom:14px;margin-bottom:22px}
+  .kicker{font:500 12px "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+  h1{font:700 34px "Cinzel",serif;margin:4px 0 2px;color:var(--gray);letter-spacing:.03em}
+  .sub{color:var(--muted);font-style:italic}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .drop{border:2px dashed var(--line);border-radius:10px;padding:34px 16px;text-align:center;cursor:pointer;transition:.15s}
+  .drop.hover,.drop:hover{border-color:var(--gold);background:var(--gold-soft)}
+  .drop strong{font:600 18px "Cinzel",serif;color:var(--gray)}
+  .settings{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:14px;font-size:16px}
+  .settings label{display:flex;gap:8px;align-items:center}
+  input[type=number],input[type=date]{font:15px "IBM Plex Mono",monospace;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+  input[type=number]{width:70px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:22px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--gray);border-radius:8px;padding:12px 14px}
+  .stat .n{font:700 30px "Cinzel",serif;line-height:1.1}
+  .stat .l{font:500 11px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+  .stat.old{border-left-color:var(--old)} .stat.old .n{color:var(--old)}
+  .stat.dup{border-left-color:var(--dup)} .stat.dup .n{color:var(--dup)}
+  .stat.ok{border-left-color:var(--ok)} .stat.ok .n{color:var(--ok)}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px}
+  .tab{font:500 13px "IBM Plex Mono",monospace;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);cursor:pointer}
+  .tab.on{background:var(--gray);color:var(--panel);border-color:var(--gray)}
+  .btn{font:600 14px "Cinzel",serif;letter-spacing:.04em;padding:10px 16px;border:0;border-radius:8px;background:var(--gold);color:#fff;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font:13px "IBM Plex Mono",monospace}
+  th{position:sticky;top:0;background:var(--gold-soft);text-align:left;padding:8px 10px;font-weight:500;white-space:nowrap;border-bottom:1px solid var(--line)}
+  td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  tr.f-old td{background:var(--old-bg)}
+  tr.f-dup td{background:var(--dup-bg)}
+  .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:999px;margin-right:4px;color:#fff}
+  .tag.old{background:var(--old)} .tag.dup{background:var(--dup)}
+  .grp{color:var(--dup);font-weight:500}
+  .note{color:var(--muted);font-size:15px;margin-top:10px}
+  .err{color:var(--dup);margin-top:10px}
+  .hidden{display:none}
+  footer{margin-top:40px;text-align:center;color:var(--muted);font-style:italic;font-size:15px}
+  footer .seal{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--gold);margin:0 8px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Soldiers' Angels &middot; Virtual Services</div>
+    <h1>OTC Clean Up</h1>
+    <div class="sub">Drop in the One Time Care Packages Available export. Flags anything created more than 45 days ago and any duplicate service members.</div>
+  </header>
+
+  <div class="panel">
+    <div class="drop" id="drop">
+      <strong>Drop the export here</strong><br>
+      <span class="sub">or click to choose an .xlsx / .csv file</span>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+    </div>
+    <div class="settings">
+      <label>Flag if created more than <input type="number" id="days" value="45" min="1"> days ago</label>
+      <label>As of <input type="date" id="asof"></label>
+    </div>
+    <div class="note">Everything runs in your browser. The file never leaves this computer.</div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <section id="results" class="hidden">
+    <div class="stats">
+      <div class="stat"><div class="n" id="sTotal">0</div><div class="l">Total rows</div></div>
+      <div class="stat old"><div class="n" id="sOld">0</div><div class="l" id="sOldL">Over 45 days</div></div>
+      <div class="stat dup"><div class="n" id="sDup">0</div><div class="l">Duplicate rows</div></div>
+      <div class="stat ok"><div class="n" id="sClean">0</div><div class="l">Clean rows</div></div>
+    </div>
+    <div class="bar">
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-v="flagged">All flagged</button>
+        <button class="tab" data-v="old">Over cutoff</button>
+        <button class="tab" data-v="dup">Duplicates</button>
+        <button class="tab" data-v="all">Everything</button>
+      </div>
+      <button class="btn" id="dl">Download flagged Excel</button>
+    </div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+    <div class="note" id="fname"></div>
+  </section>
+
+  <footer><span class="seal"></span>Mischief managed<span class="seal"></span></footer>
+</div>
+
+<script>
+(function(){
+  var state = { headers: [], rows: [], cols: {}, fileName: '', view: 'flagged', results: [] };
+  var $ = function(id){ return document.getElementById(id); };
+
+  function todayISO(){ var d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+  $('asof').value = todayISO();
+
+  // ---- file intake ----
+  var drop=$('drop'), file=$('file');
+  drop.addEventListener('click', function(){ file.click(); });
+  drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('hover'); });
+  drop.addEventListener('dragleave', function(){ drop.classList.remove('hover'); });
+  drop.addEventListener('drop', function(e){ e.preventDefault(); drop.classList.remove('hover'); if(e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+  file.addEventListener('change', function(){ if(file.files[0]) load(file.files[0]); });
+  $('days').addEventListener('input', function(){ if(state.rows.length) run(); });
+  $('asof').addEventListener('change', function(){ if(state.rows.length) run(); });
+
+  function load(f){
+    $('err').textContent='';
+    state.fileName = f.name;
+    var r = new FileReader();
+    r.onload = function(e){
+      try{
+        var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        // find the header row (first row that has a "created" column)
+        var hi = aoa.findIndex(function(r){ return r.some(function(c){ return /created/i.test(String(c)); }); });
+        if(hi<0) throw new Error('Could not find a "Created Date" column in this file.');
+        state.headers = aoa[hi].map(function(h){ return String(h).trim(); });
+        state.rows = aoa.slice(hi+1).filter(function(r){ return r.some(function(c){ return String(c).trim()!==''; }); });
+        detectCols();
+        run();
+      }catch(ex){ $('err').textContent = ex.message; $('results').classList.add('hidden'); }
+    };
+    r.readAsArrayBuffer(f);
+  }
+
+  // keyword-based column detection so header tweaks don't break it
+  function detectCols(){
+    var H = state.headers.map(function(h){ return h.toLowerCase(); });
+    function find(test){ for(var i=0;i<H.length;i++) if(test(H[i])) return i; return -1; }
+    state.cols = {
+      created: find(function(h){ return /created/.test(h) && /date/.test(h); }),
+      first:   find(function(h){ return /first/.test(h) && /name/.test(h); }),
+      last:    find(function(h){ return /last/.test(h) && /name/.test(h) && !/modified/.test(h); }),
+      id:      find(function(h){ return /\bid\b/.test(h); }),
+      eng:     find(function(h){ return /engagement name/.test(h); }),
+      start:   find(function(h){ return /start date/.test(h); }),
+      modified:find(function(h){ return /modified/.test(h); })
+    };
+    if(state.cols.created<0) state.cols.created = find(function(h){ return /created/.test(h); });
+    if(state.cols.first<0 || state.cols.last<0) throw new Error('Could not find Client First Name / Last Name columns.');
+  }
+
+  function toDate(v){
+    if(v instanceof Date) return new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    if(typeof v==='number'){ var d=XLSX.SSF.parse_date_code(v); return d? new Date(d.y,d.m-1,d.d) : null; }
+    var s=String(v).trim(); if(!s) return null;
+    var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    if(m){ var y=+m[3]; if(y<100) y+=2000; return new Date(y,+m[1]-1,+m[2]); }
+    m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+    var p=new Date(s); return isNaN(p)? null : new Date(p.getFullYear(),p.getMonth(),p.getDate());
+  }
+  function fmt(d){ return d? (d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear() : ''; }
+  function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z]/g,''); }
+
+  // ---- core logic ----
+  function run(){
+    var c=state.cols, cutoff=Math.max(1, +$('days').value||45);
+    var a=$('asof').value.split('-'); var asof=new Date(+a[0],+a[1]-1,+a[2]);
+    $('sOldL').textContent = 'Over '+cutoff+' days';
+
+    var res = state.rows.map(function(r,i){
+      var cd = toDate(r[c.created]);
+      var age = cd? Math.round((asof-cd)/86400000) : null;
+      var sd = c.start>=0? toDate(r[c.start]) : null, md = c.modified>=0? toDate(r[c.modified]) : null;
+      return { i:i, row:r, created:cd, start:sd, modified:md, age:age, old: age!==null && age>cutoff, noDate: !cd, dup:false, group:null, dupWith:[] };
+    });
+
+    // duplicates: same client first + last name, or same engagement ID
+    var groups={}, gNum=0, byKey={};
+    res.forEach(function(x){
+      var nk = norm(x.row[c.first])+'|'+norm(x.row[c.last]);
+      if(nk!=='|'){ (byKey['n:'+nk]=byKey['n:'+nk]||[]).push(x); }
+      if(c.id>=0){ var id=String(x.row[c.id]).trim(); if(id) (byKey['i:'+id]=byKey['i:'+id]||[]).push(x); }
+    });
+    Object.keys(byKey).forEach(function(k){
+      var list=byKey[k]; if(list.length<2) return;
+      var g = list.map(function(x){return x.group;}).filter(Boolean)[0] || ('D'+(++gNum));
+      list.forEach(function(x){ x.dup=true; x.group=g; });
+    });
+    // renumber groups in sorted order and record siblings
+    var gl={}; res.forEach(function(x){ if(x.group) (gl[x.group]=gl[x.group]||[]).push(x); });
+    var n=0; Object.keys(gl).sort(function(a,b){
+      return String(gl[a][0].row[c.last]).localeCompare(String(gl[b][0].row[c.last]));
+    }).forEach(function(k){
+      n++; var list=gl[k];
+      list.sort(newestFirst);
+      list.forEach(function(x,j){
+        x.group='Dup '+n; x.newest = j===0;
+        x.dupWith = list.filter(function(y){return y!==x;}).map(function(y){ return c.id>=0? y.row[c.id] : ('row '+(y.i+2)); });
+      });
+    });
+    state.results = res;
+    state.dupGroups = n;
+
+    var old=res.filter(function(x){return x.old;}).length, dup=res.filter(function(x){return x.dup;}).length;
+    var clean=res.filter(function(x){return !x.old && !x.dup;}).length;
+    $('sTotal').textContent=res.length; $('sOld').textContent=old; $('sDup').textContent=dup; $('sClean').textContent=clean;
+    var noDate=res.filter(function(x){return x.noDate;}).length;
+    $('fname').textContent = state.fileName + ' | '+n+' duplicate group'+(n===1?'':'s')+(noDate? ' | '+noDate+' row(s) had no readable Created Date':'')+'. Within each duplicate group the newest record is marked "newest".';
+    $('results').classList.remove('hidden');
+    render();
+  }
+
+  // newest record first: Created Date, then Start Date, then Last Modified
+  function newestFirst(a,b){
+    return ((b.created||0)-(a.created||0)) || ((b.start||0)-(a.start||0)) || ((b.modified||0)-(a.modified||0));
+  }
+
+  function flagText(x){
+    var f=[];
+    if(x.old) f.push('Over '+$('days').value+' days');
+    if(x.dup) f.push('Duplicate ('+x.group+(x.newest?', newest':'')+')');
+    return f.join('; ');
+  }
+
+  // ---- table ----
+  document.querySelectorAll('.tab').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
+      b.classList.add('on'); state.view=b.dataset.v; render();
+    });
+  });
+
+  function visible(){
+    var v=state.view, r=state.results.slice();
+    if(v==='old') r=r.filter(function(x){return x.old;});
+    if(v==='dup') r=r.filter(function(x){return x.dup;}).sort(function(a,b){ return a.group.localeCompare(b.group,undefined,{numeric:true}) || newestFirst(a,b); });
+    if(v==='flagged') r=r.filter(function(x){return x.old||x.dup;});
+    return r;
+  }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];}); }
+
+  function render(){
+    var c=state.cols, rows=visible();
+    var show=[c.first,c.last,c.created,c.id].filter(function(i){return i>=0;});
+    var extra=state.headers.map(function(_,i){return i;}).filter(function(i){ return show.indexOf(i)<0 && i!==c.eng; });
+    var cols=show.concat(extra);
+    var h='<thead><tr><th>Flags</th><th>Days old</th><th>Dup group</th>'+cols.map(function(i){return '<th>'+esc(state.headers[i])+'</th>';}).join('')+'</tr></thead><tbody>';
+    if(!rows.length) h+='<tr><td colspan="'+(cols.length+3)+'">Nothing to show here. All clear.</td></tr>';
+    rows.forEach(function(x){
+      var cls = x.dup? 'f-dup' : (x.old? 'f-old' : '');
+      var tags=(x.old?'<span class="tag old">OVER '+esc($('days').value)+'</span>':'')+(x.dup?'<span class="tag dup">DUP'+(x.newest?' &middot; NEWEST':'')+'</span>':'');
+      h+='<tr class="'+cls+'"><td>'+tags+'</td><td>'+(x.age==null?'?':x.age)+'</td><td class="grp">'+esc(x.group||'')+'</td>'+
+        cols.map(function(i){ var v=x.row[i]; if(i===c.created) v=fmt(x.created)||v; else if(v instanceof Date) v=fmt(v); return '<td>'+esc(v)+'</td>'; }).join('')+'</tr>';
+    });
+    $('tbl').innerHTML=h+'</tbody>';
+  }
+
+  // ---- export ----
+  $('dl').addEventListener('click', function(){ exportXlsx().catch(function(e){ $('err').textContent='Export failed: '+e.message; }); });
+
+  async function exportXlsx(){
+    var btn=$('dl'); btn.disabled=true; btn.textContent='Building...';
+    var c=state.cols, wb=new ExcelJS.Workbook();
+    var OLD='FFFDE7C4', DUP='FFF6CFC8', HEAD='FFE9DFC3';
+    var hdr=['Flags','Days Old','Dup Group','Duplicate Of'].concat(state.headers);
+
+    function addSheet(name, list, sortDup){
+      var ws=wb.addWorksheet(name, {views:[{state:'frozen', ySplit:1}]});
+      ws.addRow(hdr);
+      ws.getRow(1).font={bold:true};
+      ws.getRow(1).eachCell(function(cell){ cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}}; });
+      if(sortDup) list=list.slice().sort(function(a,b){ return a.group.localeCompare(b.group,undefined,{numeric:true}) || newestFirst(a,b); });
+      list.forEach(function(x){
+        var vals=x.row.map(function(v,i){ if(i===c.created && x.created) return fmt(x.created); return v instanceof Date? fmt(v) : v; });
+        var r=ws.addRow([flagText(x), x.age, x.group||'', x.dupWith.join(', ')].concat(vals));
+        var color = x.dup? DUP : (x.old? OLD : null);
+        if(color) r.eachCell({includeEmpty:true}, function(cell){ cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:color}}; });
+      });
+      ws.autoFilter={from:{row:1,column:1},to:{row:1,column:hdr.length}};
+      ws.columns.forEach(function(col,i){
+        var max=String(hdr[i]).length; col.eachCell({includeEmpty:false},function(cell){ max=Math.max(max,String(cell.value==null?'':cell.value).length); });
+        col.width=Math.min(Math.max(max+2,8),48);
+      });
+    }
+    var R=state.results;
+    addSheet('All Rows Flagged', R);
+    addSheet('Over '+$('days').value+' Days', R.filter(function(x){return x.old;}));
+    addSheet('Duplicates', R.filter(function(x){return x.dup;}), true);
+    addSheet('Clean', R.filter(function(x){return !x.old && !x.dup;}));
+
+    var buf=await wb.xlsx.writeBuffer();
+    var blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='OTC_Clean_Up_Flagged_'+$('asof').value+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    btn.disabled=false; btn.textContent='Download flagged Excel';
+  }
+})();
+</script>
+</body>
+</html>
